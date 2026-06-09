@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beat the Auditor — Anecdotes</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background:
+      radial-gradient(circle at 18% 28%, rgba(233, 30, 99, 0.15) 0%, transparent 45%),
+      radial-gradient(circle at 82% 72%, rgba(74, 201, 214, 0.18) 0%, transparent 50%),
+      linear-gradient(135deg, #0a1929 0%, #061320 100%);
+    color: #fff;
+    overflow: hidden;
+  }
+
+  /* Fake page behind the popup (just to demo the overlay) */
+  .fake-page {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    color: #6c8aa3;
+    font-size: 14px;
+    letter-spacing: 1px;
+    z-index: 0;
+  }
+  .fake-page p { max-width: 480px; line-height: 1.7; opacity: 0.5; }
+
+  /* Trigger button — simulates the in-page launcher */
+  .launch-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: linear-gradient(135deg, #e91e63, #4ac9d6);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 14px 22px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 12px 32px rgba(233, 30, 99, 0.4), 0 0 0 4px rgba(74, 201, 214, 0.1);
+    z-index: 100;
+    transition: transform 0.2s ease;
+  }
+  .launch-btn:hover { transform: translateY(-2px) scale(1.03); }
+  .launch-btn .pulse-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: #fff;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: pulse 1.6s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* Popup overlay */
+  .popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 12, 22, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .popup-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .popup {
+    width: 640px;
+    max-width: 94vw;
+    background: linear-gradient(160deg, #0f2235 0%, #0a1828 100%);
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      0 40px 80px rgba(0,0,0,0.5),
+      0 0 0 1px rgba(74, 201, 214, 0.15),
+      0 0 60px rgba(233, 30, 99, 0.08);
+    transform: scale(0.92) translateY(20px);
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .popup-overlay.open .popup { transform: scale(1) translateY(0); }
+
+  /* Gradient top accent bar */
+  .popup::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #e91e63 0%, #b94d8c 50%, #4ac9d6 100%);
+    z-index: 5;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 32px; height: 32px;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+    z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s ease;
+  }
+  .close-btn:hover { background: rgba(255,255,255,0.18); }
+
+  /* ============ INTRO SCREEN ============ */
+  .screen { padding: 36px 36px 32px; }
+  .screen.hidden { display: none; }
+
+  .intro-header { display: flex; align-items: center; gap: 18px; margin-bottom: 8px; }
+  .intro-dottie { width: 76px; height: 76px; flex-shrink: 0; filter: drop-shadow(0 6px 14px rgba(74,201,214,0.4)); }
+  .intro-dottie svg { width: 100%; height: 100%; }
+
+  .intro-title {
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    background: linear-gradient(90deg, #fff 0%, #4ac9d6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .intro-subtitle {
+    color: #e91e63;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .intro-tagline {
+    color: #a8c0d4;
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 18px 0 22px;
+  }
+  .intro-tagline strong { color: #fff; font-weight: 600; }
+
+  .rules {
+    background: rgba(74, 201, 214, 0.06);
+    border: 1px solid rgba(74, 201, 214, 0.18);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 22px;
+  }
+  .rules-title { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; color: #4ac9d6; text-transform: uppercase; margin-bottom: 10px; }
+  .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; }
+  .rule { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #d6e3ed; }
+  .rule-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .rule-icon.good { background: rgba(74, 201, 214, 0.2); color: #4ac9d6; }
+  .rule-icon.bad { background: rgba(233, 30, 99, 0.18); color: #ff5384; }
+  .rule-icon.bonus { background: rgba(245, 165, 96, 0.2); color: #f5a560; }
+  .rule-icon.control { background: rgba(255,255,255,0.1); color: #fff; font-size: 10px; }
+
+  .play-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #e91e63, #b94d8c);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(233, 30, 99, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .play-btn:hover { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(233, 30, 99, 0.45); }
+  .play-btn:active { transform: translateY(0); }
+
+  .controls-hint {
+    text-align: center;
+    margin-top: 12px;
+    font-size: 11px;
+    color: #6c8aa3;
+    letter-spacing: 0.5px;
+  }
+  .controls-hint kbd {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: inherit;
+    font-size: 10px;
+    margin: 0 2px;
+  }
+
+  /* ============ GAME SCREEN ============ */
+  .game-hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: rgba(4, 12, 22, 0.6);
+    border-bottom: 1px solid rgba(74, 201, 214, 0.12);
+  }
+  .hud-item { display: flex; flex-direction: column; gap: 2px; }
+  .hud-label { font-size: 10px; letter-spacing: 1.5px; color: #6c8aa3; text-transform: uppercase; }
+  .hud-value { font-size: 22px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+  .hud-value.score { color: #4ac9d6; }
+  .hud-value.timer { color: #fff; }
+  .hud-value.timer.warning { color: #ff9d54; animation: timer-shake 0.4s infinite; }
+  .hud-value.timer.critical { color: #ff5384; animation: timer-shake 0.25s infinite; }
+  @keyframes timer-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+  }
+  .combo { font-size: 11px; color: #f5a560; font-weight: 700; letter-spacing: 1px; min-height: 14px; }
+
+  .game-stage {
+    position: relative;
+    width: 100%;
+    height: 440px;
+    background:
+      linear-gradient(180deg, rgba(74, 201, 214, 0.04) 0%, transparent 30%),
+      linear-gradient(180deg, transparent 70%, rgba(233, 30, 99, 0.06) 100%);
+    overflow: hidden;
+    cursor: none;
+    touch-action: none;
+  }
+  .game-stage::before {
+    /* subtle grid for "audit floor" feel */
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(74, 201, 214, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(74, 201, 214, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* Dottie sprite */
+  .dottie {
+    position: absolute;
+    bottom: 8px;
+    width: 70px;
+    height: 70px;
+    transition: transform 0.05s linear;
+    filter: drop-shadow(0 4px 10px rgba(74,201,214,0.3));
+    pointer-events: none;
+    will-change: left, transform;
+  }
+  .dottie svg { width: 100%; height: 100%; }
+  .dottie.hit { animation: hit-flash 0.4s ease; }
+  @keyframes hit-flash {
+    0%, 100% { filter: drop-shadow(0 4px 10px rgba(74,201,214,0.3)); }
+    50% { filter: drop-shadow(0 0 16px rgba(255, 83, 132, 1)) brightness(1.4); }
+  }
+
+  /* Falling items */
+  .item {
+    position: absolute;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.3px;
+    border-radius: 10px;
+    padding: 12px 16px;
+    white-space: nowrap;
+    will-change: transform;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    user-select: none;
+  }
+  .item.evidence {
+    background: linear-gradient(135deg, #4ac9d6, #3a9aa6);
+    color: #051a1d;
+    border: 1.5px solid rgba(255,255,255,0.25);
+  }
+  .item.stale {
+    background: linear-gradient(135deg, #ff5384, #b62a5a);
+    color: #fff;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    animation: stale-wobble 0.5s infinite;
+  }
+  .item.control {
+    background: linear-gradient(135deg, #f5a560, #d97f3a);
+    color: #2a1810;
+    border: 1.5px solid rgba(255,255,255,0.4);
+    box-shadow: 0 0 20px rgba(245, 165, 96, 0.6);
+    animation: control-glow 1s infinite alternate;
+  }
+  @keyframes stale-wobble {
+    0%, 100% { transform: rotate(-2deg); }
+    50% { transform: rotate(2deg); }
+  }
+  @keyframes control-glow {
+    from { box-shadow: 0 0 20px rgba(245, 165, 96, 0.5); }
+    to { box-shadow: 0 0 30px rgba(245, 165, 96, 1); }
+  }
+
+  /* Floating score popups */
+  .float-score {
+    position: absolute;
+    font-weight: 800;
+    font-size: 18px;
+    pointer-events: none;
+    animation: float-up 0.8s ease-out forwards;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  }
+  .float-score.positive { color: #4ac9d6; }
+  .float-score.negative { color: #ff5384; }
+  .float-score.bonus { color: #f5a560; font-size: 22px; }
+  @keyframes float-up {
+    0% { opacity: 0; transform: translateY(0) scale(0.6); }
+    20% { opacity: 1; transform: translateY(-10px) scale(1.1); }
+    100% { opacity: 0; transform: translateY(-40px) scale(1); }
+  }
+
+  /* ============ END SCREEN ============ */
+  .end-screen { text-align: center; }
+  .end-badge {
+    width: 90px; height: 90px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(74,201,214,0.18), rgba(233,30,99,0.12));
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid rgba(74, 201, 214, 0.4);
+  }
+  .end-badge svg { width: 70px; height: 70px; }
+
+  .end-verdict {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #4ac9d6;
+    margin-bottom: 6px;
+  }
+  .end-verdict.fail { color: #ff5384; }
+
+  .end-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 14px;
+    letter-spacing: -0.5px;
+  }
+
+  .end-score-row {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    margin-bottom: 22px;
+    padding: 16px;
+    background: rgba(74, 201, 214, 0.06);
+    border-radius: 12px;
+    border: 1px solid rgba(74, 201, 214, 0.12);
+  }
+  .end-score-item { text-align: center; }
+  .end-score-label { font-size: 10px; color: #6c8aa3; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .end-score-value { font-size: 24px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+  .end-score-value.highlight { color: #4ac9d6; }
+
+  .end-cta-block {
+    background: linear-gradient(135deg, rgba(233, 30, 99, 0.12), rgba(74, 201, 214, 0.08));
+    border: 1px solid rgba(233, 30, 99, 0.25);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+  .end-cta-pretitle { font-size: 11px; color: #f5a560; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .end-cta-headline { font-size: 17px; font-weight: 700; color: #fff; line-height: 1.35; margin-bottom: 14px; }
+  .end-cta-btn {
+    display: inline-block;
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #e91e63, #b94d8c);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    box-shadow: 0 8px 20px rgba(233, 30, 99, 0.4);
+    transition: transform 0.15s ease;
+  }
+  .end-cta-btn:hover { transform: translateY(-2px); }
+
+  .end-actions { display: flex; gap: 10px; justify-content: center; }
+  .end-action-link {
+    background: none;
+    border: none;
+    color: #6c8aa3;
+    font-size: 12px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    padding: 6px 12px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .end-action-link:hover { color: #4ac9d6; }
+
+  /* ============ COUNTDOWN ============ */
+  .countdown {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 12, 22, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 50;
+    font-size: 120px;
+    font-weight: 900;
+    color: #4ac9d6;
+    text-shadow: 0 0 40px rgba(74,201,214,0.6);
+    animation: countdown-pop 1s ease;
+  }
+  @keyframes countdown-pop {
+    0% { transform: scale(2); opacity: 0; }
+    50% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0.5); opacity: 0; }
+  }
+
+  @media (max-width: 520px) {
+    .popup { width: 96vw; border-radius: 18px; }
+    .screen { padding: 26px 22px 24px; }
+    .intro-title { font-size: 24px; }
+    .rules-grid { grid-template-columns: 1fr; }
+    .game-stage { height: 360px; }
+    .end-title { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="fake-page">
+  <p>Pretend this is the Anecdotes homepage.<br>Click the launcher at the bottom-right to open the popup game.</p>
+</div>
+
+<button class="launch-btn" id="launchBtn">
+  <span class="pulse-dot"></span>
+  Beat the Auditor — 45s
+</button>
+
+<!-- ============ POPUP ============ -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup" role="dialog" aria-labelledby="introTitle">
+    <button class="close-btn" id="closeBtn" aria-label="Close">×</button>
+
+    <!-- Intro screen -->
+    <div class="screen" id="introScreen">
+      <div class="intro-header">
+        <div class="intro-dottie" id="introDottie"></div>
+        <div>
+          <div class="intro-subtitle">Audit Season Mini-Game</div>
+          <div class="intro-title">Beat the Auditor</div>
+        </div>
+      </div>
+      <p class="intro-tagline">
+        The auditor's at the door. Help <strong>Dottie</strong> sweep up clean evidence
+        before the clock runs out — and dodge the stale stuff that'll fail your control.
+      </p>
+
+      <div class="rules">
+        <div class="rules-title">Score Sheet</div>
+        <div class="rules-grid">
+          <div class="rule"><span class="rule-icon good">+10</span> Fresh evidence</div>
+          <div class="rule"><span class="rule-icon bad">−15</span> Stale evidence</div>
+          <div class="rule"><span class="rule-icon bonus">+50</span> Automated control</div>
+          <div class="rule"><span class="rule-icon control">⌨</span> Move with mouse / ← →</div>
+        </div>
+      </div>
+
+      <button class="play-btn" id="playBtn">Start the Audit →</button>
+      <div class="controls-hint">
+        Best on desktop · <kbd>←</kbd> <kbd>→</kbd> or move mouse · <kbd>Space</kbd> to start
+      </div>
+    </div>
+
+    <!-- Game screen -->
+    <div class="screen hidden" id="gameScreen" style="padding:0;">
+      <div class="game-hud">
+        <div class="hud-item">
+          <span class="hud-label">Score</span>
+          <span class="hud-value score" id="scoreVal">0</span>
+        </div>
+        <div class="hud-item" style="align-items:center;">
+          <span class="hud-label">Combo</span>
+          <span class="combo" id="comboVal">—</span>
+        </div>
+        <div class="hud-item" style="align-items:flex-end;">
+          <span class="hud-label">Time</span>
+          <span class="hud-value timer" id="timerVal">45</span>
+        </div>
+      </div>
+      <div class="game-stage" id="stage">
+        <div class="dottie" id="dottie"></div>
+      </div>
+    </div>
+
+    <!-- End screen -->
+    <div class="screen hidden" id="endScreen">
+      <div class="end-screen">
+        <div class="end-badge" id="endBadge"></div>
+        <div class="end-verdict" id="endVerdict">Audit Passed</div>
+        <h2 class="end-title" id="endTitle">Nice sweep.</h2>
+
+        <div class="end-score-row">
+          <div class="end-score-item">
+            <div class="end-score-label">Final Score</div>
+            <div class="end-score-value highlight" id="endScore">0</div>
+          </div>
+          <div class="end-score-item">
+            <div class="end-score-label">Evidence</div>
+            <div class="end-score-value" id="endCaught">0</div>
+          </div>
+          <div class="end-score-item">
+            <div class="end-score-label">Best Combo</div>
+            <div class="end-score-value" id="endCombo">0</div>
+          </div>
+        </div>
+
+        <div class="end-cta-block">
+          <div class="end-cta-pretitle" id="ctaPretitle">Next Step</div>
+          <div class="end-cta-headline" id="ctaHeadline">Book a Demo</div>
+          <a href="#" class="end-cta-btn" id="ctaBtn" target="_blank" rel="noopener">Get Started →</a>
+        </div>
+
+        <div class="end-actions">
+          <button class="end-action-link" id="playAgainBtn">Play again</button>
+          <button class="end-action-link" id="shareBtn">Share score</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+// CTA CONFIG — edit these date ranges to swap end-screen CTAs.
+// Marketing can change the campaign without touching game code.
+// Dates are ISO (YYYY-MM-DD). First matching range wins; otherwise default.
+// =====================================================================
+const CTA_CONFIG = {
+  default: {
+    pretitle: 'Your Next Step',
+    headline: 'See Anecdotes turn your evidence sweep into autopilot.',
+    button: 'Book a Demo →',
+    url: 'https://anecdotes.ai/demo',
+  },
+  campaigns: [
+    {
+      from: '2026-06-01', to: '2026-07-15',
+      pretitle: 'Live at RSA · Booth #2154',
+      headline: 'Catch the live demo at RSA Conference 2026.',
+      button: 'Reserve a Slot →',
+      url: 'https://anecdotes.ai/rsa',
+    },
+    {
+      from: '2026-08-01', to: '2026-09-30',
+      pretitle: 'New Report',
+      headline: 'Download the 2026 State of Agentic GRC report.',
+      button: 'Get the Report →',
+      url: 'https://anecdotes.ai/state-of-grc',
+    },
+    {
+      from: '2026-10-15', to: '2026-12-15',
+      pretitle: 'Webinar',
+      headline: 'Year-end audit prep — live with Anecdotes experts.',
+      button: 'Save My Seat →',
+      url: 'https://anecdotes.ai/webinar',
+    },
+  ],
+};
+
+function pickCTA(today = new Date()) {
+  const iso = today.toISOString().slice(0, 10);
+  const match = CTA_CONFIG.campaigns.find(c => iso >= c.from && iso <= c.to);
+  return match || CTA_CONFIG.default;
+}
+
+// =====================================================================
+// DOTTIE SVG (reused from complypet.html aniSVG)
+// =====================================================================
+function dottieSVG(mood = 'happy') {
+  const body = mood === 'hit' ? '#3aa8b4' : '#4ac9d6';
+  const stem = '#f5a560';
+  const accent = '#e91e63';
+
+  const eyes = mood === 'hit'
+    ? `<path d="M16 39 L36 49 M36 39 L16 49" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+       <path d="M40 39 L60 49 M60 39 L40 49" stroke="#000" stroke-width="3" stroke-linecap="round"/>`
+    : `<g transform="translate(26 44)">
+         <ellipse cx="0" cy="0" rx="9" ry="11" fill="#fff" stroke="#000" stroke-width="2.5"/>
+         <ellipse cx="0" cy="1.5" rx="6.5" ry="8.5" fill="#000"/>
+         <ellipse cx="2.5" cy="-3" rx="2.8" ry="2.2" fill="#fff"/>
+         <circle cx="-1.5" cy="3.5" r="1.1" fill="#fff"/>
+       </g>
+       <g transform="translate(46 44)">
+         <ellipse cx="0" cy="0" rx="9" ry="11" fill="#fff" stroke="#000" stroke-width="2.5"/>
+         <ellipse cx="0" cy="1.5" rx="6.5" ry="8.5" fill="#000"/>
+         <ellipse cx="2.5" cy="-3" rx="2.8" ry="2.2" fill="#fff"/>
+         <circle cx="-1.5" cy="3.5" r="1.1" fill="#fff"/>
+       </g>`;
+
+  const mouth = mood === 'hit'
+    ? `<path d="M30 70 Q36 64 42 70" stroke="#000" stroke-width="2.2" fill="#8a5a5a" stroke-linecap="round"/>`
+    : `<path d="M30 64 Q36 70 42 64" stroke="#000" stroke-width="2.2" fill="#ff7a9f" stroke-linecap="round"/>`;
+
+  const sparkles = mood === 'happy' ? `
+    <circle cx="14" cy="58" r="4.5" fill="#ff9eb5" opacity="0.65"/>
+    <circle cx="56" cy="66" r="3.5" fill="#ff9eb5" opacity="0.55"/>
+    <g transform="translate(12 28)" fill="#fff" opacity="0.95"><path d="M0 -3.5 L1 -1 L3.5 0 L1 1 L0 3.5 L-1 1 L-3.5 0 L-1 -1 Z"/></g>
+    <g transform="translate(58 30) scale(0.85)" fill="#fff" opacity="0.95"><path d="M0 -3.5 L1 -1 L3.5 0 L1 1 L0 3.5 L-1 1 L-3.5 0 L-1 -1 Z"/></g>
+  ` : '';
+
+  return `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="50" cy="94" rx="34" ry="3" fill="rgba(0,0,0,0.18)"/>
+      <ellipse cx="60" cy="52" rx="14" ry="30" fill="${accent}"/>
+      <rect x="66" y="12" width="18" height="78" fill="${stem}" rx="9" transform="rotate(8 75 51)"/>
+      <ellipse cx="36" cy="52" rx="32" ry="34" fill="${body}"/>
+      ${sparkles}
+      ${eyes}
+      ${mouth}
+    </svg>
+  `;
+}
+
+// =====================================================================
+// ITEM TYPES
+// =====================================================================
+const EVIDENCE_TYPES = [
+  { label: 'SOC 2 Report', type: 'evidence', points: 10 },
+  { label: 'ISO 27001 Cert', type: 'evidence', points: 10 },
+  { label: 'Access Log', type: 'evidence', points: 10 },
+  { label: 'Policy PDF', type: 'evidence', points: 10 },
+  { label: 'HIPAA Audit', type: 'evidence', points: 10 },
+  { label: 'Pen Test', type: 'evidence', points: 10 },
+  { label: 'Control #4.2', type: 'evidence', points: 10 },
+];
+const STALE_TYPES = [
+  { label: 'Screenshot from 2022', type: 'stale', points: -15 },
+  { label: 'Expired Cert', type: 'stale', points: -15 },
+  { label: 'TODO: review', type: 'stale', points: -15 },
+  { label: '"It\'s fine" — Slack', type: 'stale', points: -15 },
+];
+const BONUS_TYPE = { label: '⚡ Automated Control', type: 'control', points: 50 };
+
+// =====================================================================
+// GAME STATE
+// =====================================================================
+const state = {
+  running: false,
+  score: 0,
+  caught: 0,
+  combo: 0,
+  bestCombo: 0,
+  timeLeft: 45,
+  dottieX: 0,
+  stageW: 0,
+  stageH: 0,
+  items: [],
+  spawnTimer: 0,
+  bonusFired: false,
+  lastFrame: 0,
+  timerInterval: null,
+  rafId: null,
+  keysHeld: { left: false, right: false },
+};
+
+const el = {
+  overlay: document.getElementById('popupOverlay'),
+  launch: document.getElementById('launchBtn'),
+  close: document.getElementById('closeBtn'),
+  intro: document.getElementById('introScreen'),
+  game: document.getElementById('gameScreen'),
+  end: document.getElementById('endScreen'),
+  play: document.getElementById('playBtn'),
+  again: document.getElementById('playAgainBtn'),
+  share: document.getElementById('shareBtn'),
+  stage: document.getElementById('stage'),
+  dottie: document.getElementById('dottie'),
+  introDottie: document.getElementById('introDottie'),
+  scoreVal: document.getElementById('scoreVal'),
+  comboVal: document.getElementById('comboVal'),
+  timerVal: document.getElementById('timerVal'),
+  endScore: document.getElementById('endScore'),
+  endCaught: document.getElementById('endCaught'),
+  endCombo: document.getElementById('endCombo'),
+  endTitle: document.getElementById('endTitle'),
+  endVerdict: document.getElementById('endVerdict'),
+  endBadge: document.getElementById('endBadge'),
+  ctaPretitle: document.getElementById('ctaPretitle'),
+  ctaHeadline: document.getElementById('ctaHeadline'),
+  ctaBtn: document.getElementById('ctaBtn'),
+};
+
+el.introDottie.innerHTML = dottieSVG('happy');
+el.dottie.innerHTML = dottieSVG('happy');
+el.endBadge.innerHTML = dottieSVG('happy');
+
+// =====================================================================
+// POPUP OPEN / CLOSE
+// =====================================================================
+function openPopup() {
+  el.overlay.classList.add('open');
+  showScreen('intro');
+}
+function closePopup() {
+  el.overlay.classList.remove('open');
+  stopGame();
+}
+el.launch.addEventListener('click', openPopup);
+el.close.addEventListener('click', closePopup);
+el.overlay.addEventListener('click', e => { if (e.target === el.overlay) closePopup(); });
+
+function showScreen(name) {
+  el.intro.classList.toggle('hidden', name !== 'intro');
+  el.game.classList.toggle('hidden', name !== 'game');
+  el.end.classList.toggle('hidden', name !== 'end');
+}
+
+// =====================================================================
+// GAME LOOP
+// =====================================================================
+function startGame() {
+  state.score = 0;
+  state.caught = 0;
+  state.combo = 0;
+  state.bestCombo = 0;
+  state.timeLeft = 45;
+  state.items = [];
+  state.spawnTimer = 0;
+  state.bonusFired = false;
+  state.lastFrame = performance.now();
+
+  showScreen('game');
+  // measure stage
+  const r = el.stage.getBoundingClientRect();
+  state.stageW = r.width;
+  state.stageH = r.height;
+  state.dottieX = (state.stageW - 70) / 2;
+  el.dottie.style.left = state.dottieX + 'px';
+
+  updateHUD();
+
+  // 3-2-1 countdown then go
+  runCountdown(() => {
+    state.running = true;
+    state.lastFrame = performance.now();
+    state.rafId = requestAnimationFrame(tick);
+    state.timerInterval = setInterval(() => {
+      state.timeLeft -= 1;
+      if (state.timeLeft <= 0) {
+        state.timeLeft = 0;
+        updateHUD();
+        endGame();
+      } else {
+        updateHUD();
+      }
+    }, 1000);
+  });
+}
+
+function runCountdown(done) {
+  let n = 3;
+  const stage = el.stage;
+  const tick = () => {
+    const cd = document.createElement('div');
+    cd.className = 'countdown';
+    cd.textContent = n === 0 ? 'GO!' : String(n);
+    stage.appendChild(cd);
+    setTimeout(() => cd.remove(), 900);
+    if (n === 0) { setTimeout(done, 400); return; }
+    n -= 1;
+    setTimeout(tick, 800);
+  };
+  tick();
+}
+
+function stopGame() {
+  state.running = false;
+  if (state.rafId) cancelAnimationFrame(state.rafId);
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  // clean up dom items
+  state.items.forEach(it => it.node.remove());
+  state.items = [];
+}
+
+function endGame() {
+  stopGame();
+  // populate end screen
+  el.endScore.textContent = String(state.score);
+  el.endCaught.textContent = String(state.caught);
+  el.endCombo.textContent = '×' + state.bestCombo;
+
+  const passed = state.score >= 80;
+  el.endVerdict.textContent = passed ? 'Audit Passed' : 'Findings Issued';
+  el.endVerdict.classList.toggle('fail', !passed);
+  if (passed) {
+    el.endTitle.textContent = state.score >= 200 ? 'Spotless. Auditor speechless.' : 'Clean enough. Auditor approves.';
+  } else {
+    el.endTitle.textContent = 'A few stale items slipped through.';
+  }
+
+  const cta = pickCTA();
+  el.ctaPretitle.textContent = cta.pretitle;
+  el.ctaHeadline.textContent = cta.headline;
+  el.ctaBtn.textContent = cta.button;
+  el.ctaBtn.href = cta.url;
+
+  showScreen('end');
+}
+
+function tick(now) {
+  if (!state.running) return;
+  const dt = Math.min(50, now - state.lastFrame);
+  state.lastFrame = now;
+
+  // keyboard movement
+  const speed = 0.5; // px per ms
+  if (state.keysHeld.left)  state.dottieX -= speed * dt;
+  if (state.keysHeld.right) state.dottieX += speed * dt;
+  state.dottieX = Math.max(0, Math.min(state.stageW - 70, state.dottieX));
+  el.dottie.style.left = state.dottieX + 'px';
+
+  // spawn
+  state.spawnTimer -= dt;
+  if (state.spawnTimer <= 0) {
+    spawnItem();
+    // spawn rate accelerates as time runs out
+    const elapsedRatio = 1 - (state.timeLeft / 45);
+    const base = 1100 - elapsedRatio * 350; // 1100ms → 750ms
+    state.spawnTimer = base + Math.random() * 300;
+  }
+
+  // bonus once around mid-game
+  if (!state.bonusFired && state.timeLeft <= 28 && state.timeLeft >= 18) {
+    state.bonusFired = true;
+    spawnItem('bonus');
+  }
+
+  // update items
+  for (let i = state.items.length - 1; i >= 0; i--) {
+    const it = state.items[i];
+    it.y += it.vy * dt;
+    it.node.style.transform = `translate(${it.x}px, ${it.y}px)`;
+
+    // collision with dottie (approx rectangles)
+    const dRect = { x: state.dottieX + 8, y: state.stageH - 70, w: 54, h: 60 };
+    const iRect = { x: it.x, y: it.y, w: it.w, h: it.h };
+    if (rectsOverlap(dRect, iRect)) {
+      handleCatch(it);
+      removeItem(i);
+      continue;
+    }
+
+    // off-bottom
+    if (it.y > state.stageH + 20) {
+      if (it.type === 'evidence') {
+        // missing fresh evidence breaks combo
+        state.combo = 0;
+        updateHUD();
+      }
+      removeItem(i);
+    }
+  }
+
+  state.rafId = requestAnimationFrame(tick);
+}
+
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function spawnItem(force) {
+  let data;
+  if (force === 'bonus') {
+    data = BONUS_TYPE;
+  } else {
+    // 75% evidence, 25% stale; accelerates toward 65/35 late game
+    const elapsedRatio = 1 - (state.timeLeft / 45);
+    const staleChance = 0.25 + elapsedRatio * 0.10;
+    if (Math.random() < staleChance) {
+      data = STALE_TYPES[Math.floor(Math.random() * STALE_TYPES.length)];
+    } else {
+      data = EVIDENCE_TYPES[Math.floor(Math.random() * EVIDENCE_TYPES.length)];
+    }
+  }
+
+  const node = document.createElement('div');
+  node.className = 'item ' + data.type;
+  node.textContent = data.label;
+  el.stage.appendChild(node);
+  // measure after insert
+  const w = node.offsetWidth;
+  const h = node.offsetHeight;
+  const x = Math.random() * (state.stageW - w);
+  const y = -h;
+  const elapsedRatio = 1 - (state.timeLeft / 45);
+  const baseSpeed = data.type === 'control' ? 0.22 : (0.10 + elapsedRatio * 0.10);
+  const vy = baseSpeed + Math.random() * 0.03;
+  node.style.transform = `translate(${x}px, ${y}px)`;
+  state.items.push({ node, x, y, w, h, vy, type: data.type, points: data.points });
+}
+
+function removeItem(idx) {
+  state.items[idx].node.remove();
+  state.items.splice(idx, 1);
+}
+
+function handleCatch(it) {
+  if (it.type === 'evidence') {
+    state.combo += 1;
+    state.bestCombo = Math.max(state.bestCombo, state.combo);
+    const multiplier = 1 + Math.floor(state.combo / 5) * 0.5; // every 5 → +50%
+    const gained = Math.round(it.points * multiplier);
+    state.score += gained;
+    state.caught += 1;
+    floatScore('+' + gained, it.x + it.w/2, it.y, 'positive');
+  } else if (it.type === 'control') {
+    state.score += it.points;
+    state.caught += 1;
+    floatScore('+' + it.points, it.x + it.w/2, it.y, 'bonus');
+    state.combo += 2;
+    state.bestCombo = Math.max(state.bestCombo, state.combo);
+  } else if (it.type === 'stale') {
+    state.score = Math.max(0, state.score + it.points);
+    state.combo = 0;
+    floatScore(String(it.points), it.x + it.w/2, it.y, 'negative');
+    el.dottie.innerHTML = dottieSVG('hit');
+    el.dottie.classList.add('hit');
+    setTimeout(() => {
+      el.dottie.innerHTML = dottieSVG('happy');
+      el.dottie.classList.remove('hit');
+    }, 400);
+  }
+  updateHUD();
+}
+
+function floatScore(text, x, y, kind) {
+  const n = document.createElement('div');
+  n.className = 'float-score ' + kind;
+  n.textContent = text;
+  n.style.left = (x - 20) + 'px';
+  n.style.top = y + 'px';
+  el.stage.appendChild(n);
+  setTimeout(() => n.remove(), 800);
+}
+
+function updateHUD() {
+  el.scoreVal.textContent = String(state.score);
+  el.timerVal.textContent = String(state.timeLeft);
+  el.timerVal.classList.toggle('warning', state.timeLeft <= 15 && state.timeLeft > 5);
+  el.timerVal.classList.toggle('critical', state.timeLeft <= 5);
+  if (state.combo >= 3) {
+    const mult = 1 + Math.floor(state.combo / 5) * 0.5;
+    el.comboVal.textContent = `×${state.combo} streak · ${mult.toFixed(1)}x`;
+  } else {
+    el.comboVal.textContent = '—';
+  }
+}
+
+// =====================================================================
+// INPUT
+// =====================================================================
+el.stage.addEventListener('pointermove', e => {
+  if (!state.running) return;
+  const r = el.stage.getBoundingClientRect();
+  const x = e.clientX - r.left - 35;
+  state.dottieX = Math.max(0, Math.min(state.stageW - 70, x));
+  el.dottie.style.left = state.dottieX + 'px';
+});
+el.stage.addEventListener('touchmove', e => {
+  if (!state.running || !e.touches[0]) return;
+  const r = el.stage.getBoundingClientRect();
+  const x = e.touches[0].clientX - r.left - 35;
+  state.dottieX = Math.max(0, Math.min(state.stageW - 70, x));
+  el.dottie.style.left = state.dottieX + 'px';
+  e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('keydown', e => {
+  if (!el.overlay.classList.contains('open')) return;
+  if (e.key === 'Escape') closePopup();
+  if (e.key === ' ' && !el.intro.classList.contains('hidden')) { e.preventDefault(); startGame(); }
+  if (e.key === 'ArrowLeft') state.keysHeld.left = true;
+  if (e.key === 'ArrowRight') state.keysHeld.right = true;
+});
+document.addEventListener('keyup', e => {
+  if (e.key === 'ArrowLeft') state.keysHeld.left = false;
+  if (e.key === 'ArrowRight') state.keysHeld.right = false;
+});
+
+el.play.addEventListener('click', startGame);
+el.again.addEventListener('click', startGame);
+el.share.addEventListener('click', () => {
+  const text = `I scored ${state.score} on Beat the Auditor with Dottie 🛡️ — try to beat me at anecdotes.ai`;
+  if (navigator.share) {
+    navigator.share({ title: 'Beat the Auditor', text, url: 'https://anecdotes.ai' }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text);
+    el.share.textContent = 'Copied!';
+    setTimeout(() => { el.share.textContent = 'Share score'; }, 1500);
+  }
+});
+
+// Auto-open on first load for demo purposes — remove this in production
+// or replace with scroll/time-based trigger.
+window.addEventListener('load', () => {
+  setTimeout(openPopup, 600);
+});
+</script>
+
+</body>
+</html>
